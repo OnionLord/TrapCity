@@ -1,0 +1,1 @@
+trap_(trap_type)_(trap_state).jpg

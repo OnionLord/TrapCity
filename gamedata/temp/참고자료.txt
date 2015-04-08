@@ -1,0 +1,1132 @@
+import javax.microedition.midlet.*;
+import javax.microedition.lcdui.*;
+import javax.microedition.rms.*;
+import java.io.*;
+import java.util.*;
+import java.lang.*;
+import com.skt.m.*;
+
+//Fusion Lunch main class
+
+public class Project1 extends MIDlet {
+
+ private Display display;
+ private Main main;
+ private Thread thread;
+
+ public Project1() {
+  display = Display.getDisplay(this);
+  main = new Main();
+  thread = new Thread(main);
+ }
+
+ public void startApp() {
+  display.setCurrent(main);
+  thread.start();
+ }
+ public void pauseApp() {}
+
+ public void destroyApp(boolean bool) {}
+}
+
+class Main extends Canvas implements Runnable {
+
+ //메인 스테이트
+ private static final byte INTRO=0;
+ private static final byte MENU=1;
+ private static final byte GAME=2;
+ private static final byte OPTION=3;
+ private static final byte HELP=4;
+ private static final byte SCORE=5;
+
+ private static final byte GameHelp1=0;
+ private static final byte GameHelp2=1;
+ private static final byte GameHelp3=2;
+ private static final byte GameHelp4=3;
+
+ //게임 스테이트
+ private static final byte START=0;
+ private static final byte RUN=1;
+ private static final byte BOSS = 2;
+ private static final byte GAMEMENU = 3;
+
+ private String strTmp;
+ private Random rand = new Random();
+
+ private Image Img_Buf;
+ private Graphics g;
+
+ // 메인타이틀 //
+ private Image img_kw;
+ private Image img_title; 
+ // 케릭터 //
+ private Image img_char_go[] = new Image[2];
+ private Image img_char_attack[] = new Image[2];
+ private Image img_weapon[] = new Image[4];
+ private Image img_char_hit;
+ private Image img_char_jump;
+ private Image img_char_break;
+ // 아이템 //
+ private Image img_item[] = new Image[2];
+ // 적 // 
+ private Image img_enemy[] = new Image[2]; 
+ // 왕 //
+ private Image img_boss;
+ private Image img_boss_attack1;
+ private Image img_boss_attack2;
+ private Image img_boss_hit;
+ private Image img_boss_die;
+ private Image img_ball[] = new Image[4];
+
+ // 장애물 //
+ private Image img_stone;
+ // 배경 //
+ private Image img_base;
+ private Image img_ground1;
+ private Image img_tree[] = new Image[2];
+ // 인터페이스 //
+ private Image img_heart;
+ 
+ SndPlay Snd = new SndPlay();
+ private int swWidth, swHeight, userWidth, userHeight;
+ private int vol, SoundOption, VibOption;
+
+ private byte MainStatus, GameStatus;
+ private int i, j, temp;
+ private int MainCnt, introCnt, GameCnt;
+ private byte menuNum, optionNum, helpNum;
+
+ private byte introStep;
+
+ private int Bottom;
+ private int WidthNum;
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+ Main main;
+ Display display;
+
+ Main(){
+  this.display = display;
+  this.main=main;
+  swWidth=getWidth();
+  swHeight=getHeight()+16;
+  userWidth=swWidth>>1;
+  userHeight=swHeight>>1;
+  Device.setBacklightEnabled(false); //Backlight Setting
+  BackLight.on(0);
+  Device.setKeyToneEnabled(false);
+  Img_Buf = Image.createImage(swWidth, swHeight);  //image buffer
+  g=Img_Buf.getGraphics();
+  
+  GetUserNV();
+  GetUserSave();
+  if(SaveData[0]!=1){
+   SoundOption=1;
+   VibOption=1;
+   SaveData[0]=1;
+   SaveData[1]=1; //sound option
+   SaveData[2]=1; //vib option
+   SaveData[3]=0; //
+   SaveData[4]=0; //
+   SaveData[5]=0; //
+   PutUserNV();
+   SaveSlot[0] = 0;
+   PutUserSave();
+  }
+  else {
+   SoundOption = SaveData[1];
+   VibOption = SaveData[2];
+   HighScore   = SaveSlot[0];
+  }
+  IntroInit();
+  Bottom = swHeight-24;
+  WidthNum = (swWidth / 35)+2;
+ }
+
+ public void ClearWhite(){
+  g.setColor(0xFFFFFF);
+  g.fillRect(0, 0, swWidth, swHeight);
+ }
+
+ public void ClearBlack(){
+  g.setColor(0x000000);
+  g.fillRect(0, 0, swWidth, swHeight);
+ } 
+
+//////////////////////////////////////////////////////////////////////////
+//
+//   INTRO
+//
+//////////////////////////////////////////////////////////////////////////
+ public void IntroInit() {
+  MainStatus=INTRO;
+  IntroLoad();
+ }
+
+ public void IntroLoad() {
+  try {
+   img_kw = Image.createImage("/Image/kw.png");
+  }catch(IOException e){System.out.println("Intro 로드에러");}
+  System.gc();
+ }
+
+ public void IntroNull(){
+  img_kw = null;
+  System.gc();
+ }
+
+ public void IntroTimer(){
+  ClearWhite();
+  g.drawImage(img_kw, userWidth, userHeight, g.VCENTER|g.HCENTER);
+  if(introCnt>30) MenuInit();
+  introCnt++;
+ }
+
+////////////////////////////////////////////////////////////////////////////
+//
+//    MENU
+//
+////////////////////////////////////////////////////////////////////////////
+ 
+ private boolean GameStart;
+
+ public void MenuInit(){
+  MainStatus=MENU;
+  MenuLoad();
+ }
+ public void MenuLoad() {  
+  try {
+   img_title = Image.createImage("/Image/title.png");
+  }catch(IOException e){System.out.println("메뉴로드에러");}  
+  System.gc();
+ }
+
+ public void MenuNull() {
+  img_title = null;
+  System.gc();
+ }
+
+ public void MenuTimer() {
+  ClearWhite();
+  g.drawImage(img_title,userWidth,userHeight-20,g.BOTTOM|g.HCENTER);
+  g.setColor(0x000000);
+  g.drawString("시작하기", userWidth, swHeight/11*6, g.BOTTOM|g.HCENTER);
+  g.drawString("옵    션", userWidth, swHeight/11*7, g.BOTTOM|g.HCENTER);
+  g.drawString("도 움 말", userWidth, swHeight/11*8, g.BOTTOM|g.HCENTER);
+  g.drawString("점수보기", userWidth, swHeight/11*9, g.BOTTOM|g.HCENTER);
+  g.drawString("나 가 기", userWidth, swHeight/11*10, g.BOTTOM|g.HCENTER);
+  g.setColor(0xFF0000);
+  switch(menuNum){
+   case 0:  g.drawString("시작하기", userWidth, swHeight/11*6, g.BOTTOM|g.HCENTER);  break;
+   case 1:  g.drawString("옵    션", userWidth, swHeight/11*7, g.BOTTOM|g.HCENTER);  break;
+   case 2:  g.drawString("도 움 말", userWidth, swHeight/11*8, g.BOTTOM|g.HCENTER);  break;
+   case 3:  g.drawString("점수보기", userWidth, swHeight/11*9, g.BOTTOM|g.HCENTER);  break;
+   case 4:  g.drawString("나 가 기", userWidth, swHeight/11*10, g.BOTTOM|g.HCENTER); break;
+  }
+  if (GameStart == true){
+   GameStart = false;
+   MenuNull();
+   GameInit();   
+  }
+ }
+
+ private void MenuKey(int key){
+  switch(key){
+   case KEY_UP:
+    if(menuNum>0) menuNum--;
+   break;
+   case KEY_DOWN:
+    if(menuNum<4) menuNum++;
+   break;
+   case KEY_COMR: case KEY_COMC: case KEY_COML: case KEY_FIRE: case KEY_NUM5:
+    switch(menuNum){
+     case 0:  GameStart = true;  break;
+     case 1:  MainStatus=OPTION;  break;
+     case 2:  MainStatus=HELP;  break;
+     case 3:  MainStatus=SCORE;  break;
+     case 4:  System.exit(0);   break;
+    }
+   break;
+  }
+ }
+
+////////////////////////////////////////////////////////////////////////////
+//
+//    OPTION
+//
+////////////////////////////////////////////////////////////////////////////
+ public void OptionTimer() {
+  ClearWhite();
+  g.setColor(0x000000);
+  g.drawString("사운드", userWidth, swHeight/5*2, g.BOTTOM|g.HCENTER);
+  g.drawString("진동", userWidth, swHeight/5*3, g.BOTTOM|g.HCENTER);
+  if(SoundOption==1) g.drawString("On", userWidth+30, swHeight/5*2, g.BOTTOM|g.HCENTER);
+  else g.drawString("Off", userWidth+30, swHeight/5*2, g.BOTTOM|g.HCENTER);
+  if(VibOption==1) g.drawString("On", userWidth+30, swHeight/5*3, g.BOTTOM|g.HCENTER);
+  else g.drawString("Off", userWidth+30, swHeight/5*3, g.BOTTOM|g.HCENTER);
+  g.setColor(0xFF0000);
+  switch(optionNum)
+  {
+   case 0:
+    g.drawString("사운드", userWidth, swHeight/5*2, g.BOTTOM|g.HCENTER);
+   break;
+   case 1:
+    g.drawString("진동", userWidth, swHeight/5*3, g.BOTTOM|g.HCENTER);
+   break;
+  }
+ }
+ private void OptionKey(int key){
+  switch(key){
+   case KEY_UP:
+    optionNum=0;
+   break;
+   case KEY_DOWN:
+    optionNum=1;
+   break;
+   case KEY_COMR: case KEY_COMC: case KEY_COML: case KEY_FIRE:
+    switch(optionNum)
+    {
+     case 0:
+      if(SoundOption==1) SoundOption=0;
+      else SoundOption=1;
+     break;
+     case 1:
+      if(VibOption==1) VibOption=0;
+      else VibOption=1;
+     break;
+    }
+   break;
+   case KEY_CLR:
+    SaveData[1]=SoundOption;
+    SaveData[2]=VibOption;
+    PutUserNV();
+    MainStatus=MENU;
+   break;
+  }
+ }
+
+////////////////////////////////////////////////////////////////////////////
+//
+//    HELP
+//
+////////////////////////////////////////////////////////////////////////////
+ public void HelpTimer() {
+  ClearWhite();
+  g.setColor(0x000000);  
+  g.drawString("공격: 5번키,OK키",userWidth,userHeight-25,g.BOTTOM|g.HCENTER);
+  g.drawString("브레이크: ←키,4번키",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+  g.drawString("점프: ↑키,2번키",userWidth,userHeight+25,g.BOTTOM|g.HCENTER);
+
+ }
+ private void HelpKey(int key){
+  switch(key){   
+   case KEY_CLR:
+    MainStatus=MENU;
+   break;
+  }
+ } 
+////////////////////////////////////////////////////////////////////////////
+//
+//    HELP
+//
+////////////////////////////////////////////////////////////////////////////
+ public void ScoreTimer(){
+  ClearWhite();
+  g.setColor(0,0,0);
+  g.drawString("최고 점수",userWidth,userHeight-50,g.BOTTOM|g.HCENTER);
+  g.drawString(""+HighScore,userWidth,userHeight,g.BOTTOM|g.HCENTER);
+ }
+ public void ScoreKey(int key){
+  MainStatus=MENU;
+ }
+
+
+////////////////////////////////////////////////////////////////////////////
+//
+//    GAME
+//
+////////////////////////////////////////////////////////////////////////////
+ 
+ // 게임 실행및 게임 에 사용될 자표 초기화//
+ public void GameInit(){
+  MainStatus=GAME;
+  GameStatus=START;
+  GameLoad();
+
+  // 초기화 부분 //
+  MeTrue = true;
+  MeX = -30;
+  MeY = Bottom;
+  Heart = 3;
+  Score = 0;
+  GameCnt = 0;
+  
+  temp = 0;
+  for (i=0;i<WidthNum ;i++ ){   
+   BaseX[i] = temp;
+   BaseKind[i] = Math.abs(rand.nextInt()%3);
+   temp+=35;
+  }
+  for (i=0;i<3 ;i++ ) ItemDeley[i] = 100 + Math.abs(rand.nextInt()%50);
+ }
+
+ public void GameLoad() {
+  try {
+   img_char_go[0] = Image.createImage("/Image/char_go[0].png");
+   img_char_go[1] = Image.createImage("/Image/char_go[1].png");
+   
+   img_char_attack[0] = Image.createImage("/Image/char_attack[0].png");
+   img_char_attack[1] = Image.createImage("/Image/char_attack[1].png");
+   
+   img_char_hit = Image.createImage("/Image/char_hit.png");
+   img_char_jump = Image.createImage("/Image/char_jump.png");  
+   img_char_break = Image.createImage("/Image/char_break.png");
+
+   img_weapon[0] = Image.createImage("/Image/weapon[0].png");
+   img_weapon[1] = Image.createImage("/Image/weapon[1].png");
+   img_weapon[2] = Image.createImage("/Image/weapon[2].png");
+   img_weapon[3] = Image.createImage("/Image/weapon[3].png");
+
+   img_enemy[0] = Image.createImage("/Image/enemy[0].png");
+   img_enemy[1] = Image.createImage("/Image/enemy[1].png");
+
+   img_item[0] = Image.createImage("/Image/item[0].png");
+   img_item[1] = Image.createImage("/Image/item[1].png");
+
+   img_base = Image.createImage("/Image/base.png");   
+   img_stone = Image.createImage("/Image/stone.png");
+   img_ground1 = Image.createImage("/Image/ground1.png");
+   img_tree[0] = Image.createImage("/Image/tree[0].png");
+   img_tree[1] = Image.createImage("/Image/tree[1].png");
+
+   img_heart = Image.createImage("/Image/heart.png");
+   
+   img_boss = Image.createImage("/Image/boss.png");
+   img_boss_attack1 = Image.createImage("/Image/boss_attack1.png");
+   img_boss_attack2 = Image.createImage("/Image/boss_attack2.png");
+   img_boss_hit = Image.createImage("/Image/boss_hit.png");
+   img_boss_die = Image.createImage("/Image/boss_die.png");
+
+   img_ball[0] = Image.createImage("/Image/ball[0].png");
+   img_ball[1] = Image.createImage("/Image/ball[1].png");
+   img_ball[2] = Image.createImage("/Image/ball[2].png");
+   img_ball[3] = Image.createImage("/Image/ball[3].png");
+
+
+  }catch(IOException e){ System.out.println("게임로드에러"); }
+  System.gc();
+ } 
+
+ public void GameNull() {
+  img_char_go[0] = null;
+  img_char_go[1] = null;  
+  img_char_attack[0] = null;
+  img_char_attack[1] = null;  
+  img_char_hit = null;
+  img_char_jump = null;
+  img_char_break = null;
+  img_weapon[0] = null;
+  img_weapon[1] = null;
+  img_weapon[2] = null;
+  img_weapon[3] = null;
+  img_enemy[0] = null;
+  img_enemy[1] = null;
+  img_item[0] = null;
+  img_item[1] = null;
+  img_base = null;
+  img_stone = null;
+  img_ground1 = null;
+  img_tree[0] = null;
+  img_tree[1] = null;
+  img_heart = null;
+  img_boss = null;
+  img_boss_attack1 = null;
+  img_boss_attack2 = null;
+  img_boss_hit = null;
+  img_boss_die = null;
+  img_ball[0] = null;
+  img_ball[1] = null;
+  img_ball[2] = null;
+  img_ball[3] = null;
+  System.gc();
+ }
+ public void GameTimer(){
+  switch(GameStatus){
+   case START:
+    if (MeX < swWidth/4)MeX +=5;
+    else GameStatus = RUN;
+    Stage_Draw();    
+    Hero_Draw();
+    InterFace();
+    g.setColor(0,0,0);
+    g.drawString("READY",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+   break;
+   case RUN:
+    // 그리기 부분 //
+    Stage_Draw();
+    Stone_Draw();
+    Enemy_Draw();
+    Hero_Draw();
+    Weapon_Draw();
+    Item_Draw();    
+    // 제어 부분 //
+    Stage_Check();    
+    Stone_Check();
+    Enemy_Check();
+    Hero_Move();
+    Weapon_Check();
+    Item_Check();
+    // UI //
+    InterFace();    
+    // 보스 출현 //
+    if (GameCnt > 1000) {
+     BossReady = true;
+     g.setColor(255,0,0);
+     g.drawString("WARNING!!",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+     if (GameCnt > 1050) Boss_init();
+    }    
+   break;
+   case BOSS:
+    Stage_Draw();
+    Hero_Draw();
+    Boss_Draw();
+    Weapon_Draw();
+    Hero_Move();
+    Boss_Check();
+    Weapon_Check();
+    // UI //
+    InterFace();
+   break;
+   case GAMEMENU:
+    g.setColor(0,0,0);
+    g.drawString("일시정지",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+   break;
+  }
+  // 게임 끝 //
+  if (GameOver == true){
+   g.setColor(0,0,0);
+   g.drawString("GAME OVER",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+   GameOverCnt++;
+   if (GameOverCnt > 20){
+    GameOverCnt = 0;
+    GameOver = false;
+    GameNull();
+    MenuInit();
+   }
+   // 최고 점수 저장 //
+   if (Score > HighScore){
+    HighScore = Score;
+    ScoreSave();
+   }
+  }
+  GameCnt++;
+ }
+ 
+ //============== 주인공 ================//
+ private boolean MeTrue;
+ private boolean AttackTrue, AttackReady;
+ private boolean JumpTrue;
+ private boolean Break;
+ private boolean MeDie;
+ private int MeX,MeY;
+ private int NormalCnt;
+ private int AttackCnt;
+ private int JumpCnt; 
+ private int DieCnt;
+ private int ScrollSpeed;
+
+ private boolean Continue;
+ private boolean GameOver;
+ private int GameOverCnt;
+ private int B1,B2;
+ 
+ public void Hero_Draw(){
+  if (MeTrue == true){
+   if (AttackTrue == true){
+    g.drawImage(img_char_attack[AttackCnt],MeX,MeY,g.BOTTOM|g.HCENTER);
+    AttackCnt++;
+    if (AttackCnt == 2){
+     AttackCnt = 0;
+     AttackTrue = false;
+    }
+   }
+   else if (Break == true)  g.drawImage(img_char_break,MeX,MeY,g.BOTTOM|g.HCENTER);
+   else if (JumpTrue == true) g.drawImage(img_char_jump,MeX,MeY,g.BOTTOM|g.HCENTER);   
+   else {
+    if (GameCnt % 3 == 0){
+     if (NormalCnt == 0)NormalCnt = 1;
+     else      NormalCnt = 0;
+    }
+    g.drawImage(img_char_go[NormalCnt],MeX,MeY,g.BOTTOM|g.HCENTER);
+   }
+  }
+  else if (MeDie == true){
+   DieCnt++;
+   switch (DieCnt){    
+    case 1:  MeY -=10;  break;
+    case 2:  MeY -=5;  break;
+    case 3:  MeY -=2;  break;
+    case 4:  MeY -=1;  break;
+    case 5:  MeY +=1;  break;
+    case 6:  MeY +=2;  break;
+    case 7:  MeY +=5;  break;
+    default: MeY +=8;  break;
+    case 15:
+     MeDie = false;
+     DieCnt = 0;
+     if (Heart > 0) {
+      Continue = true;
+      JumpTrue = false;
+      JumpCnt = 0;
+      MeX = -30;
+      MeY = Bottom;
+      Heart --;      
+     }
+     else GameOver = true;
+    break;
+   }
+   g.drawImage(img_char_hit,MeX,MeY,g.BOTTOM|g.HCENTER);
+  }
+
+  // 죽었을때 //
+  if (Continue == true){
+   if (MeX < swWidth/4) MeX += 5;
+   else {
+    Continue = false;
+    MeTrue = true;
+   }
+   if (GameCnt % 2 == 0){
+    if (GameCnt % 3 == 0){
+     if (NormalCnt == 0)NormalCnt = 1;
+     else      NormalCnt = 0;
+    }
+    g.drawImage(img_char_go[NormalCnt],MeX,MeY,g.BOTTOM|g.HCENTER);
+   }
+  }  
+ }
+ public void Hero_Move(){
+  // 전진 속도 //
+  if (BossReady == false){
+   if (Break == true || MeTrue == false) ScrollSpeed = 2;
+   else          ScrollSpeed = 10;
+  }
+  else if (GameCnt % 5 == 0 && ScrollSpeed > 0) ScrollSpeed--;
+  // 점프 //
+  if (JumpTrue == true){
+   JumpCnt++;
+   switch (JumpCnt){
+    case 1:  MeY -=30;  break;
+    case 2:  MeY -=20;  break;
+    case 3:  MeY -=10;  break;
+    case 4:  MeY -=5;  break;
+    case 5:  MeY -=2;  break;
+    case 6:  MeY -=1;  break;
+    case 7:  MeY +=1;  break;
+    case 8:  MeY +=2;  break;
+    case 9:  MeY +=5;  break;
+    case 10: MeY +=10;  break;
+    case 11: MeY +=20;  break;
+    case 12:
+     MeY +=30;
+     JumpTrue = false;
+     JumpCnt = 0;
+    break;
+   }
+  }
+  // 공격 //
+  if (AttackReady == true){
+   AttackReady = false;
+   if (MeTrue == true){
+    AttackTrue = true;
+    Weapon_Input();   
+   }
+  }  
+ }
+ //=============== 주인공 무기 ==========//
+ private boolean WeaponTrue[] = new boolean[5];
+ private int  WeaponX[] = new int[5];
+ private int  WeaponY[] = new int[5];
+ private int  WeaponNum[] = new int[5];
+ private int  WeaponFallCnt[] = new int[5];
+ 
+ public void Weapon_Input(){
+  for (i=0;i<5 ;i++ ){
+   if (WeaponTrue[i] == false){
+    WeaponTrue[i] = true;
+    WeaponX[i] = MeX - 20;
+    WeaponY[i] = MeY - 12;
+    WeaponNum[i] = 0;
+    WeaponFallCnt[i] = -5;
+    break;
+   }
+  }
+ }
+ public void Weapon_Draw(){
+  for (i=0;i<5 ;i++ ){
+   if (WeaponTrue[i] == true){ 
+    g.drawImage(img_weapon[WeaponNum[i]],WeaponX[i],WeaponY[i],g.VCENTER|g.HCENTER);
+    if (WeaponNum[i] == 3) WeaponNum[i] = 0;
+    else WeaponNum[i]++;
+   }
+  }  
+ }
+ public void Weapon_Check(){
+  for (i=0;i<5 ;i++ ){
+   if (WeaponTrue[i] == true){
+    WeaponFallCnt[i] ++;
+    switch (GameStatus){
+     case RUN:
+      if (Break == true) WeaponX[i] += 15;
+      else    WeaponX[i] += 10;
+     break;
+     case BOSS:  WeaponX[i] +=12; break;
+    }
+
+    WeaponY[i] += WeaponFallCnt[i];
+    if (WeaponY[i] > Bottom || WeaponX[i] > swWidth) WeaponTrue[i] = false;
+   }
+  }
+ }
+ private int BaseX[] = new int[20];
+ private int BaseKind[] = new int[20];
+
+ //=============== 스테이지 =============//
+ public void Stage_Draw(){
+  g.setColor(0,181,255);
+  g.fillRect(0,0,swWidth,swHeight);
+  for (i=0;i<WidthNum ;i++ ) {
+   g.drawImage(img_base,BaseX[i],Bottom,g.TOP|g.LEFT);
+   g.drawImage(img_ground1,BaseX[i],25,g.TOP|g.LEFT);
+   if (BaseKind[i] != 2) g.drawImage(img_tree[BaseKind[i]],BaseX[i],30,g.TOP|g.LEFT);
+  }
+ }
+ public void Stage_Check(){
+  for (i=0;i<WidthNum ;i++ ){
+   BaseX[i] -= ScrollSpeed;
+   if (BaseX[i] < -35){
+    BaseX[i] += WidthNum*35;
+    BaseKind[i] = Math.abs(rand.nextInt()%3);
+   }
+  }
+ }
+
+ //=============== Item =================//
+ private boolean ItemTrue[] = new boolean[3];
+ 
+ private int  ItemX[]  = new int[3];
+ private int  ItemY[]  = new int[3];
+ private int  ItemKind[] = new int[3];
+ private int  ItemDeley[] = new int[3];
+ 
+ public void Item_Draw(){
+  for (i=0;i<3 ;i++ ){
+   if (ItemTrue[i] == true){
+    if (ItemKind[i] == 2)g.drawImage(img_heart,ItemX[i],ItemY[i],g.BOTTOM|g.HCENTER); 
+    else     g.drawImage(img_item[ItemKind[i]],ItemX[i],ItemY[i],g.BOTTOM|g.HCENTER);
+    ItemX[i]-=ScrollSpeed;
+   }
+  }
+ }
+ public void Item_Check(){
+  for (i=0;i<3 ;i++ ){
+   if (ItemTrue[i] == true){
+    if (ItemX[i]+15 > MeX && ItemX[i]-15 < MeX && ItemY[i]+30 > MeY && ItemY[i] - 10 < MeY){
+     ItemTrue[i] = false;
+     Score += 100;
+     if (ItemKind[i] == 2 && Heart < 4) Heart++;
+    }
+    if (ItemX[i] < - 20) ItemTrue[i] = false;    
+   }
+   else {
+    ItemDeley[i]--;
+    if (ItemDeley[i] == 0){
+     ItemDeley[i] = Math.abs(rand.nextInt()%50);
+     ItemX[i] = swWidth + Math.abs(rand.nextInt()%50);
+     ItemY[i] = Bottom-5 - Math.abs(rand.nextInt()%50);
+     ItemKind[i] = Math.abs(rand.nextInt()%2);
+     temp = Math.abs(rand.nextInt()%10);
+     if (temp == 0) ItemKind[i] = 2;
+     ItemTrue[i] = true;
+    }
+   }
+  }
+ }
+
+ //================  적 =================//
+ private boolean EnemyTrue;
+ private boolean EnemyDie;
+ private int EnemyDieCnt;
+ private int EnemyX;
+ private int EnemyY;
+
+ public void Enemy_Draw(){
+  if (EnemyTrue == true){
+   g.drawImage(img_enemy[0],EnemyX,EnemyY,g.BOTTOM|g.HCENTER);
+   EnemyX -= ScrollSpeed;
+   if (MeTrue == true){
+    if (EnemyY < MeY - 10) EnemyY+=3;
+    else if (EnemyY > MeY+10) EnemyY-=3;
+   }   
+  }
+  else if (EnemyDie == true){
+   EnemyDieCnt++;
+   switch (EnemyDieCnt){    
+    case 1:  EnemyY -=10; break;
+    case 2:  EnemyY -=5;  break;
+    case 3:  EnemyY -=2;  break;
+    case 4:  EnemyY -=1;  break;
+    case 5:  EnemyY +=1;  break;
+    case 6:  EnemyY +=2;  break;
+    case 7:  EnemyY +=5;  break;
+    default: EnemyY +=8;  break;
+    case 15:
+     EnemyDie = false;
+     EnemyDieCnt = 0;
+    break;
+   }
+   g.drawImage(img_enemy[1],EnemyX,EnemyY,g.BOTTOM|g.HCENTER);   
+  }
+ }
+
+ public void Enemy_Check(){
+  if (MeTrue == true){
+   if (GameCnt % 80 == 0){
+    EnemyTrue = true;
+    EnemyX = swWidth + Math.abs(rand.nextInt()%50);
+    EnemyY = Bottom-30 - Math.abs(rand.nextInt()%50);
+   }
+   if (EnemyX < -20) EnemyTrue = false;
+   // 충돌체크 //
+   if (EnemyTrue == true){
+    if (EnemyX+15 > MeX && EnemyX-15 < MeX && EnemyY+15 > MeY && EnemyY - 15 < MeY){
+     MeTrue = false;
+     MeDie = true;
+    }
+    for (i=0;i<5 ;i++ ){
+     if (WeaponTrue[i] == true){
+      if (EnemyX+15 > WeaponX[i] && EnemyX-15 < WeaponX[i] && EnemyY+15 > WeaponY[i] && EnemyY - 15 < WeaponY[i]){
+       WeaponTrue[i] = false;
+       EnemyTrue = false;
+       EnemyDie = true;
+       Score += 200;
+      }
+     }
+    }    
+   }
+  }
+ }
+
+ //=============== 장애물 ===============//
+ private boolean StoneTrue;
+ private int  StoneDeley;
+ private int  StoneX;
+ private int  StoneY;
+ 
+ public void Stone_Draw(){
+  if (StoneTrue == true){
+   g.drawImage(img_stone,StoneX,StoneY,g.BOTTOM|g.HCENTER);
+   StoneX -= ScrollSpeed;
+  } 
+ }
+ public void Stone_Check(){
+  if (MeTrue == true){
+   if (GameCnt % 50 == 0){
+    StoneTrue = true;
+    StoneX = swWidth + Math.abs(rand.nextInt()%50);
+    StoneY = Bottom;
+   }
+   if (StoneX < -20) StoneTrue = false;
+   // 충돌체크 //
+   if (StoneTrue == true){
+    if (StoneX+15 > MeX && StoneX-15 < MeX && StoneY+30 > MeY && StoneY - 30 < MeY){
+     MeTrue = false;
+     MeDie = true;
+    }
+   }
+  }
+ }
+ 
+ //================ 왕 ===================//
+ private boolean BossReady;
+ private boolean BossTrue;
+ private boolean BossHit;
+ private boolean BossAttack;
+ private boolean BallTrue; 
+ private int BossAttackCnt;
+ private int BossHealth;
+ private int BossX;
+ private int BossY;
+ private int BallX;
+ private int BallY;
+ private int BallDrawNum;
+ private int EndingCnt;
+
+ public void Boss_init(){
+  GameStatus = BOSS;
+  BossTrue = true;
+  BossHealth = 100;
+  BossX = swWidth+30;
+  BossY = Bottom;
+ }
+ public void Boss_Draw(){
+  // 왕 살았을때 //
+  if (BossTrue == true){
+   if (BossHit == true){
+    g.drawImage(img_boss_hit,BossX,BossY,g.BOTTOM|g.HCENTER);
+    BossHit = false;
+   }
+   else if (BossAttack == true){
+    BossAttackCnt++;
+    switch (BossAttackCnt){
+     case 1: case 2: case 3: case 4:  g.drawImage(img_boss_attack1,BossX,BossY,g.BOTTOM|g.HCENTER); break;     
+     default:       g.drawImage(img_boss_attack2,BossX,BossY,g.BOTTOM|g.HCENTER); break;
+    }
+    if (BossAttackCnt == 5){
+     BallTrue = true;
+     BallX = BossX;
+     BallY = BossY;
+    }
+    else if (BossAttackCnt == 10){
+     BossAttackCnt = 0;
+     BossAttack = false;
+    }
+   }
+   else g.drawImage(img_boss,BossX,BossY,g.BOTTOM|g.HCENTER);
+   // 눈덩이 //   
+   if (BallTrue == true){
+    g.drawImage(img_ball[BallDrawNum],BallX,BallY,g.BOTTOM|g.HCENTER);
+    if (BallDrawNum == 3) BallDrawNum = 0;
+    else      BallDrawNum++;
+    if (BallX > -30) BallX-=5;
+    else BallTrue = false;
+   }
+   g.setColor(255,0,0);
+   g.drawString("HP:"+BossHealth,BossX,BossY-60,g.BOTTOM|g.HCENTER);
+  }
+  // 왕 죽었을때 //
+  else g.drawImage(img_boss_die,BossX,BossY,g.BOTTOM|g.HCENTER);
+ }
+ public void Boss_Check(){
+  if (BossReady == true){
+   if (BossX > swWidth/4*3) BossX-=5;
+   else BossReady = false;
+  }
+  else if (BossTrue == true){
+   if (GameCnt % 30 == 0 && Continue == false)BossAttack = true;
+   // 충돌체크 //
+   if (BossTrue == true){
+    if (BallTrue == true && BallX+15 > MeX && BallX-15 < MeX && BallY+15 > MeY && BallY - 15 < MeY){
+     MeTrue = false;
+     MeDie = true;
+     BallTrue = false;
+     
+    }
+    for (i=0;i<5 ;i++ ){
+     if (WeaponTrue[i] == true){
+      if (BossX+20 > WeaponX[i] && BossX-20 < WeaponX[i] && BossY+15 > WeaponY[i] && BossY - 40 < WeaponY[i]){
+       BossHit = true;
+       WeaponTrue[i] = false;
+       BossHealth --;
+       Score += 10;
+      }
+     }
+    }
+    if (BossHealth <= 0){
+     BallTrue = false;
+     BossTrue = false;
+     EndingCnt = 0;
+    }
+   }
+  }
+  else {
+   if (EndingCnt < 30){
+    EndingCnt++;
+    g.setColor(0,0,0);
+    g.drawString("엔딩...",userWidth,userHeight,g.BOTTOM|g.HCENTER);
+   }
+   else GameOver = true;
+  }
+ }
+
+ //=============== 점수 ============//
+ private byte Heart;
+ private int  Score,HighScore;
+
+ public void InterFace(){
+  g.setColor(0,0,0);
+  g.fillRect(0,0,swWidth,25);
+  temp = 10;
+  for (i=1;i<=Heart ;i++ ){
+   g.drawImage(img_heart,temp,5,0);
+   temp += 20;
+  }
+  g.setColor(255,255,255);
+  g.drawString("SCORE : "+Score,swWidth - 5,20,g.BOTTOM|g.RIGHT);
+ }
+
+ private void GameKey(int key){
+  switch(GameStatus){
+   case START:
+
+   break;
+   case RUN: case BOSS:
+    if (Continue == false){
+     switch(key){
+      case KEY_UP:
+       JumpTrue = true;
+      break;
+      case KEY_DOWN:
+
+      break;
+      case KEY_LEFT:
+       Break = true;
+      break;
+      case KEY_RIGHT:
+
+      break;
+      case KEY_COMR: case KEY_COMC: case KEY_COML: case KEY_FIRE: case KEY_NUM5:
+       AttackReady = true;
+      break;
+      case KEY_CLR:
+       GameStatus = GAMEMENU;
+      break;
+     }
+    }
+   break;
+   case GAMEMENU: GameStatus = RUN;  break;
+  }
+ }
+ private void GameKeyReleased(int key){
+  switch (GameStatus){
+   case RUN: case BOSS:
+    Break = false;
+   break;
+  }
+ }
+
+ ////////////////////////////////////////////////////////////////////////////
+ public void paint( Graphics pic ){
+  switch(MainStatus){
+   case INTRO:  IntroTimer();  break;
+   case MENU:  MenuTimer();  break;
+   case OPTION:  OptionTimer();  break;
+   case GAME:  GameTimer();  break;
+   case HELP:  HelpTimer();  break;
+   case SCORE:  ScoreTimer();  break;
+  }
+  pic.drawImage(Img_Buf, userWidth, userHeight, pic.VCENTER|pic.HCENTER);
+ } 
+ private int GS = 50;
+ public void run(){
+  try{
+   while(true){    
+    repaint(0, 0, swWidth, swHeight);
+    Thread.sleep(GS);
+   }
+  } catch(Exception e){
+   System.out.println("런함수에러");
+  }
+ }
+ protected void keyPressed(int keyCode){
+  switch(MainStatus){
+   case INTRO:  MenuInit();     break;
+   case MENU:  MenuKey(keyCode);   break;
+   case OPTION:  OptionKey(keyCode);   break;
+   case GAME:  GameKey(keyCode);   break;
+   case HELP:  HelpKey(keyCode);   break;
+   case SCORE:  ScoreKey(keyCode);   break;
+  }
+ }
+
+ protected void keyReleased(int keyCode) {
+  switch(MainStatus){   
+   case GAME:  GameKeyReleased(keyCode); break;   
+  }
+ }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+ private int SaveData[] = new int[10];
+ private String strscore[] = new String[10];
+
+ private void PutUserNV() {
+  RecordStore recordStore = null;
+  int numRecords;
+  try{
+   RecordStore.deleteRecordStore("db1");
+   recordStore = RecordStore.openRecordStore("db1",true);
+   numRecords = recordStore.getNumRecords();
+   for(i = 0; i < SaveData.length; i++){
+    strscore[i] = java.lang.Integer.toString(SaveData[i]);
+    byte[] b = strscore[i].getBytes();
+    if(numRecords <= 0) {
+     recordStore.addRecord(b, 0, b.length);
+    }
+    else {
+     recordStore.setRecord(i + 1, b, 0, b.length);
+    }
+   }
+   recordStore.closeRecordStore();
+  }catch(RecordStoreException e){ e.printStackTrace(); }
+ }
+ private void GetUserNV() {
+  String tempStr;
+  RecordStore recordStore = null;
+  try{
+   recordStore = RecordStore.openRecordStore("db1", true);
+   for(i = 0; i < recordStore.getNumRecords(); i++){
+    byte[] b = recordStore.getRecord(i + 1);
+    tempStr = new String(b);
+    SaveData[i] = java.lang.Integer.parseInt(tempStr);
+   }
+   recordStore.closeRecordStore();
+  }catch(RecordStoreException e){
+   e.printStackTrace(); }
+ }
+
+ //=============== 세이브 파일 입출력 ====================//
+ private int SaveSlot[] = new int[2];
+ private String strscoreSave[] = new String[2];
+ private void PutUserSave(){
+  RecordStore recordStore = null;
+  int numRecords;
+  try{
+   RecordStore.deleteRecordStore("s");
+   recordStore = RecordStore.openRecordStore("s",true);
+   numRecords = recordStore.getNumRecords();
+   for(i = 0; i < SaveSlot.length; i++){
+    strscoreSave[i] = java.lang.Integer.toString(SaveSlot[i]);
+    byte[] b = strscoreSave[i].getBytes();
+    if(numRecords <= 0) {
+     recordStore.addRecord(b, 0, b.length);
+    }
+    else {
+     recordStore.setRecord(i + 1, b, 0, b.length);
+    }
+   }
+   recordStore.closeRecordStore();
+  }catch(RecordStoreException e){e.printStackTrace();}
+ }
+ private void GetUserSave(){
+  String tempStr;
+  RecordStore recordStore = null;
+  try{   
+   recordStore = RecordStore.openRecordStore("s", true);
+   for(i = 0; i < recordStore.getNumRecords(); i++){
+    byte[] b = recordStore.getRecord(i + 1);
+    tempStr = new String(b);
+    SaveSlot[i] = java.lang.Integer.parseInt(tempStr);
+   }
+   recordStore.closeRecordStore();
+  }catch(RecordStoreException e){e.printStackTrace();}
+ }
+ public void ScoreSave(){
+  // 자동 세이브 //
+  SaveSlot[0] = HighScore;
+  PutUserSave();
+ } 
+}
+
+
+ 
+
